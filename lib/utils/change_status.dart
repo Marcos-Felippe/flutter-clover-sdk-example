@@ -7,18 +7,18 @@ class ChangeTransactionFlowStatus {
     var paymentRepo = Provider.of<PaymentRepository>(context, listen: false);
 
     paymentRepo.paymentSuccess();
-    paymentRepo.savingLoading();
+    paymentRepo.startSaving();
     // Logica para salvar no banco...
-    paymentRepo.finished();
+    paymentRepo.finish();
   }
 
   void savingLoading(BuildContext context) {
     var paymentRepo = Provider.of<PaymentRepository>(context, listen: false);
-    paymentRepo.savingLoading();
+    paymentRepo.startSaving();
   }
 
   void error(BuildContext context) {
     var paymentRepo = Provider.of<PaymentRepository>(context, listen: false);
-    paymentRepo.error();
+    paymentRepo.setError();
   }
 }

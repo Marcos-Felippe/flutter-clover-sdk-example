@@ -4,324 +4,145 @@ import 'package:app_integracao_clover/utils/keep_clover_receipts.dart';
 import 'package:flutter/material.dart';
 
 class CloverHandlerService {
+  int _toCents(double value) {
+    double totalNew = value * 100;
+    String totalString = "$totalNew";
+    List<String> totalStringSplited = totalString.split('.');
+    return int.parse(totalStringSplited[0]);
+  }
+
+  bool _isValidResponse(Map<String, dynamic>? res) {
+    return res != null &&
+        res['resultCode'] != null &&
+        res['responseCode'] != null;
+  }
+
+  bool _isSuccess(Map<String, dynamic> res) {
+    return res['resultCode'] == -1 &&
+        res['responseCode'].toString().trim() == "0";
+  }
+
+  bool _isCancelled(String code) {
+    return ['-2', '-6', '-15'].contains(code);
+  }
+
+  void _handleError(BuildContext context, String responseCode) {
+    ChangeTransactionFlowStatus().error(context);
+
+    if (_isCancelled(responseCode)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Operação cancelada!'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } else {
+      showErrorDialog(context);
+    }
+  }
+
+  Future<void> _processPayment({
+    required BuildContext context,
+    required int value,
+    required String paymentCode,
+    required String appVersion,
+    bool saveReceipt = false,
+  }) async {
+    try {
+      final clover = CloverPaymentService();
+      final response = await clover.doPayment(value, paymentCode, appVersion);
+
+      if (!_isValidResponse(response)) return;
+
+      final resultCode = response['resultCode'];
+      final responseCode = response['responseCode'].toString();
+
+      if (_isSuccess(response)) {
+        if (saveReceipt) {
+          KeepCloverReceipts().setReceipts(
+            context,
+            response['merchantReceipt'],
+            response['customerReceipt'],
+          );
+        }
+
+        ChangeTransactionFlowStatus().success(context);
+      } else if (resultCode == 0) {
+        _handleError(context, responseCode);
+      } else {
+        showErrorDialog(context);
+      }
+    } catch (e) {
+      ChangeTransactionFlowStatus().error(context);
+      showErrorDialog(context);
+    }
+  }
+
+  showErrorDialog(BuildContext mainContext) {
+    showDialog(
+      context: mainContext,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Erro no processamento!\nTente novamente.',
+            style: TextStyle(
+              color: Colors.grey[800],
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   handleCloverPayment(
     double valorPg,
     String formaPag,
     String appVersion,
-    BuildContext topContext,
+    BuildContext mainContext,
   ) async {
+    final int value = _toCents(valorPg);
+
     switch (formaPag) {
       case 'crédito':
-        double totalNew = valorPg * 100;
-        String totalString = "$totalNew";
-        List<String> totalStringSplited = totalString.split('.');
-        int value = int.parse(totalStringSplited[0]);
-
-        try {
-          final clover = CloverPaymentService();
-          dynamic success = await clover.doPayment(value, '3', appVersion);
-
-          if (success == null ||
-              success['resultCode'] == null ||
-              success['responseCode'] == null) {
-            break;
-          }
-
-          if (success != null &&
-              success['resultCode'] != null &&
-              success['responseCode'] != null) {
-            // sucesso
-            if (success['resultCode'] == -1 &&
-                success['responseCode'].toString().trim() == "0") {
-              ChangeTransactionFlowStatus().success(topContext);
-            }
-            // falha
-            else if (success['resultCode'] == 0) {
-              ChangeTransactionFlowStatus().error(topContext);
-
-              if (success['responseCode'].toString() == '-2' ||
-                  success['responseCode'].toString() == '-6' ||
-                  success['responseCode'].toString() == '-15') {
-                ScaffoldMessenger.of(topContext).showSnackBar(
-                  const SnackBar(
-                    content: Text('Operação cancelada!'),
-                    duration: Duration(seconds: 3),
-                  ),
-                );
-              } else {
-                showDialog(
-                  context: topContext,
-                  builder: (BuildContext context) {
-                    return AlertDialog(
-                      title: Text(
-                        'Erro no processamento!\nTente novamente.',
-                        style: TextStyle(
-                          color: Colors.grey[800],
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                          },
-                          child: const Text("OK"),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              }
-            } else {
-              showDialog(
-                context: topContext,
-                builder: (BuildContext context) {
-                  return AlertDialog(
-                    title: Text(
-                      'Erro no processamento!\nTente novamente.',
-                      style: TextStyle(
-                        color: Colors.grey[800],
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text("OK"),
-                      ),
-                    ],
-                  );
-                },
-              );
-            }
-          }
-        } catch (e) {
-          ChangeTransactionFlowStatus().error(topContext);
-          showDialog(
-            context: topContext,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: Text(
-                  'Erro no processamento!\nTente novamente.',
-                  style: TextStyle(
-                    color: Colors.grey[800],
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text("OK"),
-                  ),
-                ],
-              );
-            },
-          );
-        }
+        await _processPayment(
+          context: mainContext,
+          value: value,
+          paymentCode: '3',
+          appVersion: appVersion,
+          saveReceipt: true,
+        );
         break;
 
       case 'débito':
-        double totalNew = valorPg * 100;
-        String totalString = "$totalNew";
-        List<String> totalStringSplited = totalString.split('.');
-        int value = int.parse(totalStringSplited[0]);
-
-        try {
-          final clover = CloverPaymentService();
-          dynamic success = await clover.doPayment(value, '2', appVersion);
-
-          if (success != null &&
-              success['resultCode'] != null &&
-              success['responseCode'] != null) {
-            // sucesso
-            if (success['resultCode'] == -1) {
-              if (success['responseCode'].toString().trim() == "0") {
-                String viaLojista = success['merchantReceipt'];
-                String viaCliente = success['customerReceipt'];
-
-                KeepCloverReceipts().setReceipts(
-                  topContext,
-                  viaLojista,
-                  viaCliente,
-                );
-
-                ChangeTransactionFlowStatus().success(topContext);
-              } else {
-                print('falha');
-              }
-            }
-            // falha
-            else if (success['resultCode'] == 0) {
-              ChangeTransactionFlowStatus().error(topContext);
-
-              if (success['responseCode'].toString() == '-2' ||
-                  success['responseCode'].toString() == '-6' ||
-                  success['responseCode'].toString() == '-15') {
-                ScaffoldMessenger.of(topContext).showSnackBar(
-                  const SnackBar(
-                    content: Text('Operação cancelada!'),
-                    duration: Duration(seconds: 3),
-                  ),
-                );
-              } else {
-                showDialog(
-                  context: topContext,
-                  builder: (BuildContext context) {
-                    return AlertDialog(
-                      title: Text(
-                        'Erro no processamento!\nTente novamente.',
-                        style: TextStyle(
-                          color: Colors.grey[800],
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                          },
-                          child: const Text("OK"),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              }
-            }
-          }
-        } catch (e) {
-          ChangeTransactionFlowStatus().error(topContext);
-          showDialog(
-            context: topContext,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: Text(
-                  'Erro no processamento!\nTente novamente.',
-                  style: TextStyle(
-                    color: Colors.grey[800],
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text("OK"),
-                  ),
-                ],
-              );
-            },
-          );
-        }
+        await _processPayment(
+          context: mainContext,
+          value: value,
+          paymentCode: '2',
+          appVersion: appVersion,
+          saveReceipt: true,
+        );
         break;
 
       case 'pix':
-        double totalNew = valorPg * 100;
-        String totalString = "$totalNew";
-        List<String> totalStringSplited = totalString.split('.');
-        int value = int.parse(totalStringSplited[0]);
-
-        try {
-          final clover = CloverPaymentService();
-          dynamic success = await clover.doPayment(value, '122', appVersion);
-
-          // resposta do pagamento
-          if (success != null &&
-              success['resultCode'] != null &&
-              success['responseCode'] != null) {
-            // sucesso
-            if (success['resultCode'] == -1) {
-              if (success['responseCode'].toString().trim() == "0") {
-                ChangeTransactionFlowStatus().success(topContext);
-              } else {
-                print('falha');
-              }
-            }
-            // falha
-            else if (success['resultCode'] == 0) {
-              ChangeTransactionFlowStatus().error(topContext);
-
-              if (success['responseCode'].toString() == '-2' ||
-                  success['responseCode'].toString() == '-6' ||
-                  success['responseCode'].toString() == '-15') {
-                ScaffoldMessenger.of(topContext).showSnackBar(
-                  const SnackBar(
-                    content: Text('Operação cancelada!'),
-                    duration: Duration(seconds: 3),
-                  ),
-                );
-              } else {
-                showDialog(
-                  context: topContext,
-                  builder: (BuildContext context) {
-                    return AlertDialog(
-                      title: Text(
-                        'Erro no processamento!\nTente novamente.',
-                        style: TextStyle(
-                          color: Colors.grey[800],
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                          },
-                          child: const Text("OK"),
-                        ),
-                      ],
-                    );
-                  },
-                );
-              }
-            }
-          }
-        } catch (e) {
-          ChangeTransactionFlowStatus().error(topContext);
-          showDialog(
-            context: topContext,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: Text(
-                  'Erro no processamento!\nTente novamente.',
-                  style: TextStyle(
-                    color: Colors.grey[800],
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text("OK"),
-                  ),
-                ],
-              );
-            },
-          );
-        }
+        await _processPayment(
+          context: mainContext,
+          value: value,
+          paymentCode: '122',
+          appVersion: appVersion,
+          saveReceipt: true,
+        );
         break;
-      default:
     }
   }
 

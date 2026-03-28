@@ -1,42 +1,45 @@
 import 'package:flutter/material.dart';
 
+/// Representa todos os estados possíveis do pagamento
+enum PaymentStatus {
+  none,
+  loadingPayment,
+  successPayment,
+  loadingSave,
+  finished,
+  canceled,
+  error,
+}
+
 class PaymentRepository extends ChangeNotifier {
-  String status = "none";
+  PaymentStatus _status = PaymentStatus.none;
 
-  String get statusGot => status;
+  PaymentStatus get status => _status;
 
-  clear() {
-    status = "none";
+  bool get isLoading =>
+      _status == PaymentStatus.loadingPayment ||
+      _status == PaymentStatus.loadingSave;
+
+  bool get isSuccess => _status == PaymentStatus.successPayment;
+
+  bool get hasError => _status == PaymentStatus.error;
+
+  void _setStatus(PaymentStatus newStatus) {
+    _status = newStatus;
     notifyListeners();
   }
 
-  paymentLoading() {
-    status = "loading-payment";
-    notifyListeners();
-  }
+  void clear() => _setStatus(PaymentStatus.none);
 
-  paymentSuccess() {
-    status = "success-payment";
-    notifyListeners();
-  }
+  void startPayment() => _setStatus(PaymentStatus.loadingPayment);
 
-  savingLoading() {
-    status = "loading-save";
-    notifyListeners();
-  }
+  void paymentSuccess() => _setStatus(PaymentStatus.successPayment);
 
-  finished() {
-    status = "finished";
-    notifyListeners();
-  }
+  void startSaving() => _setStatus(PaymentStatus.loadingSave);
 
-  cancel() {
-    status = "cancel";
-    notifyListeners();
-  }
+  void finish() => _setStatus(PaymentStatus.finished);
 
-  error() {
-    status = "error";
-    notifyListeners();
-  }
+  void cancel() => _setStatus(PaymentStatus.canceled);
+
+  void setError() => _setStatus(PaymentStatus.error);
 }

@@ -11,7 +11,7 @@ Future<void> main() async {
 
   SystemChrome.setSystemUIOverlayStyle(
     SystemUiOverlayStyle.dark.copyWith(
-      statusBarColor: const Color(0xFF43A9E0),
+      statusBarColor: const Color(0xFF0A5278),
       statusBarIconBrightness: Brightness.light,
       statusBarBrightness: Brightness.light,
     ),
@@ -51,7 +51,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSwatch().copyWith(
-          primary: const Color(0xFF43A9E0),
+          primary: const Color(0xFF0A5278),
           secondary: Colors.blue,
           tertiary: const Color.fromARGB(255, 255, 132, 0),
           surface: Colors.white,

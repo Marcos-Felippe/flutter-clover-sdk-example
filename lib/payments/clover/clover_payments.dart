@@ -9,7 +9,7 @@ class CloverPaymentService {
     String appVersion,
   ) async {
     final result = await _channel.invokeMethod('startPayment', {
-      'functionId': functionId, // 3 - crédito, 2 - débito
+      'functionId': functionId, // 3 - crédito, 2 - débito, 122 - pix
       'transactionAmount': transactionAmount.toString(),
       'appVersion': appVersion,
     });
